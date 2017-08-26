@@ -27,9 +27,9 @@ struct EFI_SYSTEM_TABLE {
   } *ConOut;
 };
 
-void efi_main(void *ImageHandle __attribute__ ((unused)),
+extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)),
     struct EFI_SYSTEM_TABLE *SystemTable) {
   SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
-  SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Hello!\r\nUEFI!\r\n");
+  SystemTable->ConOut->OutputString(SystemTable->ConOut, (uint16_t*)L"Hello!\r\nUEFI!\r\n");
   while (1);
 }
