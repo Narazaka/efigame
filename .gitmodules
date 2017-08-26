@@ -1,0 +1,3 @@
+[submodule "uefi-headers"]
+	path = uefi-headers
+	url = git@github.com:kiznit/uefi-headers.git
