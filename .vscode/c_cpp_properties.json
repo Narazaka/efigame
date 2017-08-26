@@ -5,6 +5,8 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
+                "${workspaceRoot}/uefi-headers/Include",
+                "${workspaceRoot}/include",
                 "${workspaceRoot}"
             ],
             "defines": [],
@@ -13,6 +15,8 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
+                    "${workspaceRoot}/uefi-headers/Include",
+                    "${workspaceRoot}/include",
                     "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
@@ -24,6 +28,8 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
+                "${workspaceRoot}/uefi-headers/Include",
+                "${workspaceRoot}/include",
                 "${workspaceRoot}"
             ],
             "defines": [],
@@ -32,6 +38,8 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
+                    "${workspaceRoot}/uefi-headers/Include",
+                    "${workspaceRoot}/include",
                     "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
@@ -46,13 +54,15 @@
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/ucrt",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/shared",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/winrt",
+                "${workspaceRoot}/uefi-headers/Include",
+                "${workspaceRoot}/include",
                 "${workspaceRoot}"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE"
             ],
-            "intelliSenseMode": "msvc-x64",
+            "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
                     "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.10.25017/include/*",
@@ -60,6 +70,8 @@
                     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/ucrt",
                     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/shared",
                     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/winrt",
+                    "${workspaceRoot}/uefi-headers/Include",
+                    "${workspaceRoot}/include",
                     "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
