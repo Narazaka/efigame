@@ -3,7 +3,7 @@ all: fs/EFI/BOOT/BOOTX64.EFI
 fs/EFI/BOOT/BOOTX64.EFI: main.cpp include/ProcessorBind.h
 	mkdir -p fs/EFI/BOOT
 	x86_64-w64-mingw32-g++ -std=c++14 -Wall -Wextra -e efi_main -Iuefi-headers/Include -Iinclude -nostdlib \
-	-fno-builtin -Wl,--subsystem,10 -o $@ $<
+	-fno-builtin -Wl,--subsystem,10 -mno-stack-arg-probe -o $@ $<
 
 include/ProcessorBind.h:
 	mkdir -p include

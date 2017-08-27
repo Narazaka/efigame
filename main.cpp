@@ -141,23 +141,12 @@ namespace EfiGame {
     }
 
     void fillRect(INT32 x, INT32 y, UINT32 w, UINT32 h, const Pixel &color) {
-      Pixel *basePixel = (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase;
-      Pixel *pointPixel;
-
-      INT32 px, py;
-      INT32 yoffset;
-      for (py = y; py < y + (INT32)h; ++py) {
-        if (py < 0) continue;
-        if (py >= (INT32)VerticalResolution) break;
-        yoffset = py * (INT32)HorizontalResolution;
-        for (px = x; px < x + (INT32)w; ++px) {
-          if (px < 0 || px >= (INT32)HorizontalResolution) continue;
-          pointPixel = basePixel + yoffset + px;
-          pointPixel->Blue = color.Blue;
-          pointPixel->Green = color.Green;
-          pointPixel->Red = color.Red;
-          pointPixel->Reserved = color.Reserved;
-        }
+      Pixel pixels[HorizontalResolution];
+      UINT32 px, py;
+      if (w > HorizontalResolution) w = HorizontalResolution;
+      for (px = 0; px < w; ++px) pixels[px] = color;
+      for (py = y; py < y + h; ++py) {
+        GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, x, py, w, 1, 0);
       }
     }
 
@@ -218,13 +207,25 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
 
   Console::clear();
   Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
+  Graphics::Pixel white {255, 255, 255, 0};
+  Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
   Graphics::Pixel color {0, 127, 255, 0};
+  Graphics::Pixel color2 {255, 127, 255, 0};
   Graphics::fillRect(0, 0, 100, 100, color);
   Graphics::fillRect(100, 100, 100, 100, color);
-  Graphics::fillCircle(300, 300, 100, color);
-  CHAR16 str[5];
+  UINT32 offset = 0;
+  UINT32 a;
+  while(TRUE) {
+    a = 0;
+    //while(a < 1000000) a++;
+    Graphics::fillRect(0, offset - 10, Graphics::HorizontalResolution, 10, color2);
+    Graphics::fillRect(0, offset, Graphics::HorizontalResolution, 100, color);
+    offset++;
+    if (offset >= Graphics::VerticalResolution) offset = 0;
+  }
+  /*CHAR16 str[5];
   while (TRUE) {
     Input::getLine(str, 5);
     Console::writeLine(str);
-  }
+  }*/
 }
