@@ -8,10 +8,9 @@ namespace EfiGame {
 
   static EFI_SYSTEM_TABLE *SystemTable;
 
-  class Input {
-  public:
+  namespace Input {
     /** キー入力1つを読み込む キー入力まで待機する */
-    static auto getChar() {
+    auto getChar() {
       EFI_INPUT_KEY key;
       UINT64 waitIdx;
       SystemTable->BootServices->WaitForEvent(1, &(SystemTable->ConIn->WaitForKey), &waitIdx);
@@ -20,7 +19,7 @@ namespace EfiGame {
     }
 
     /** 改行が来るまでキー入力を読み込む(改行を含まない) バッファの終端がくるか改行キー入力まで待機する */
-    static auto getLine(STRING str, INT32 size) {
+    auto getLine(STRING str, INT32 size) {
       CHAR16 key;
       INT32 offset = 0;
       size--; // \0の分
@@ -36,37 +35,34 @@ namespace EfiGame {
       return offset;
     }
 
-    static auto onKeyEvent() {
+    auto onKeyEvent() {
 
     }
   };
 
-  class Console {
-  public:
-    static auto clear() {
+  namespace Console {
+    auto clear() {
       SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
     }
 
-    static auto write(STRING str) {
+    auto write(STRING str) {
       SystemTable->ConOut->OutputString(SystemTable->ConOut, str);
     }
 
-    static auto writeLine(STRING str) {
+    auto writeLine(STRING str) {
       write(str);
       write((STRING)L"\r\n");
     }
   };
 
-  static EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutputProtocol;
+  namespace Graphics {
+    static EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutputProtocol;
 
-  class Graphic {
-  private:
-  public:
-    static auto init() {
+    auto initGraphics() {
       SystemTable->BootServices->LocateProtocol(&gEfiGraphicsOutputProtocolGuid, nullptr, (void**)&GraphicsOutputProtocol);
     }
 
-    static auto getMaxResolutionMode(BOOLEAN horizontal = true) {
+    auto getMaxResolutionMode(BOOLEAN horizontal = true) {
       // cf. http://segfo-ctflog.blogspot.jp/2015/06/uefios.html
       EFI_STATUS status;
       UINTN sizeOfInfo;
@@ -83,25 +79,33 @@ namespace EfiGame {
       return mode;
     }
 
-    static auto setMode(UINT32 mode) {
+    auto setMode(UINT32 mode) {
       GraphicsOutputProtocol->SetMode(GraphicsOutputProtocol, mode);
     }
 
-    static auto maximizeResolution(BOOLEAN hosizontal = true) {
+    auto maximizeResolution(BOOLEAN hosizontal = true) {
       setMode(getMaxResolutionMode(hosizontal));
+    }
+
+    auto HorizontalResolution() {
+      return GraphicsOutputProtocol->Mode->Info->HorizontalResolution;
+    }
+
+    auto VerticalResolution() {
+      return GraphicsOutputProtocol->Mode->Info->VerticalResolution;
     }
   };
 
   void initGame(EFI_SYSTEM_TABLE *SystemTable) {
     EfiGame::SystemTable = SystemTable;
-    Graphic::init();
+    Graphics::initGraphics();
   }
 };
 
 
 extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE *SystemTable) {
   EfiGame::initGame(SystemTable);
-  EfiGame::Graphic::maximizeResolution();
+  EfiGame::Graphics::maximizeResolution();
 
   EfiGame::Console::clear();
   EfiGame::Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
