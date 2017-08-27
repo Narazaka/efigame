@@ -1,13 +1,12 @@
 #include <Uefi.h>
+#include <Protocol/GraphicsOutput.h>
+
+EFI_GUID gEfiGraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
 namespace EfiGame {
   typedef CHAR16* STRING;
 
   static EFI_SYSTEM_TABLE *SystemTable;
-
-  void initGame(EFI_SYSTEM_TABLE *SystemTable) {
-    EfiGame::SystemTable = SystemTable;
-  }
 
   class Input {
   public:
@@ -57,11 +56,52 @@ namespace EfiGame {
       write((STRING)L"\r\n");
     }
   };
+
+  static EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutputProtocol;
+
+  class Graphic {
+  private:
+  public:
+    static auto init() {
+      SystemTable->BootServices->LocateProtocol(&gEfiGraphicsOutputProtocolGuid, nullptr, (void**)&GraphicsOutputProtocol);
+    }
+
+    static auto getMaxResolutionMode(BOOLEAN horizontal = true) {
+      // cf. http://segfo-ctflog.blogspot.jp/2015/06/uefios.html
+      EFI_STATUS status;
+      UINTN sizeOfInfo;
+      EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *gopInfo;
+      UINT32 mode = 0;
+      for (UINT32 i = 0; i < GraphicsOutputProtocol->Mode->MaxMode; ++i) {
+        status = GraphicsOutputProtocol->QueryMode(GraphicsOutputProtocol, i, &sizeOfInfo, &gopInfo);
+        if (status != EFI_SUCCESS) break;
+        if (gopInfo->PixelFormat != PixelBltOnly &&
+          ((gopInfo->HorizontalResolution >= gopInfo->VerticalResolution) == horizontal)) {
+          mode = i;
+        }
+      }
+      return mode;
+    }
+
+    static auto setMode(UINT32 mode) {
+      GraphicsOutputProtocol->SetMode(GraphicsOutputProtocol, mode);
+    }
+
+    static auto maximizeResolution(BOOLEAN hosizontal = true) {
+      setMode(getMaxResolutionMode(hosizontal));
+    }
+  };
+
+  void initGame(EFI_SYSTEM_TABLE *SystemTable) {
+    EfiGame::SystemTable = SystemTable;
+    Graphic::init();
+  }
 };
 
 
 extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE *SystemTable) {
   EfiGame::initGame(SystemTable);
+  EfiGame::Graphic::maximizeResolution();
 
   EfiGame::Console::clear();
   EfiGame::Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
