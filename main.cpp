@@ -1,5 +1,6 @@
 #include <Uefi.h>
 #include <Protocol/GraphicsOutput.h>
+#include <cmath>
 
 EFI_GUID gEfiGraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
@@ -57,12 +58,18 @@ namespace EfiGame {
 
   namespace Graphics {
     static EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutputProtocol;
+    static UINT32 HorizontalResolution;
+    static UINT32 VerticalResolution;
+    static UINT32 TotalResolution;
 
     auto initGraphics() {
       SystemTable->BootServices->LocateProtocol(&gEfiGraphicsOutputProtocolGuid, nullptr, (void**)&GraphicsOutputProtocol);
+      HorizontalResolution = GraphicsOutputProtocol->Mode->Info->HorizontalResolution;
+      VerticalResolution = GraphicsOutputProtocol->Mode->Info->VerticalResolution;
+      TotalResolution = HorizontalResolution * VerticalResolution;
     }
 
-    auto getMaxResolutionMode(BOOLEAN horizontal = true) {
+    auto getMaxResolutionMode(BOOLEAN horizontal = TRUE) {
       // cf. http://segfo-ctflog.blogspot.jp/2015/06/uefios.html
       EFI_STATUS status;
       UINTN sizeOfInfo;
@@ -81,18 +88,119 @@ namespace EfiGame {
 
     auto setMode(UINT32 mode) {
       GraphicsOutputProtocol->SetMode(GraphicsOutputProtocol, mode);
+      HorizontalResolution = GraphicsOutputProtocol->Mode->Info->HorizontalResolution;
+      VerticalResolution = GraphicsOutputProtocol->Mode->Info->VerticalResolution;
+      TotalResolution = HorizontalResolution * VerticalResolution;
     }
 
-    auto maximizeResolution(BOOLEAN hosizontal = true) {
+    auto maximizeResolution(BOOLEAN hosizontal = TRUE) {
       setMode(getMaxResolutionMode(hosizontal));
     }
 
-    auto HorizontalResolution() {
-      return GraphicsOutputProtocol->Mode->Info->HorizontalResolution;
+    typedef EFI_GRAPHICS_OUTPUT_BLT_PIXEL Pixel;
+
+    struct _Point {
+      INT32 x;
+      INT32 y;
+    };
+
+    typedef struct _Point Point;
+
+    struct _Rect {
+      UINT32 w;
+      UINT32 h;
+    };
+
+    typedef struct _Rect Rect;
+
+    struct _Circle {
+      UINT32 r;
+    };
+
+    typedef struct _Circle Circle;
+
+    void drawPoint(INT32 offset, const Pixel &pixel, Pixel *basePixel) {
+      if (offset < 0 || offset >= (INT32)TotalResolution) return;
+      Pixel *pointPixel = basePixel + offset;
+      pointPixel->Blue = pixel.Blue;
+      pointPixel->Green = pixel.Green;
+      pointPixel->Red = pixel.Red;
+      pointPixel->Reserved = pixel.Reserved;
     }
 
-    auto VerticalResolution() {
-      return GraphicsOutputProtocol->Mode->Info->VerticalResolution;
+    void drawPoint(INT32 offset, const Pixel &pixel) {
+      drawPoint(offset, pixel, (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase);
+    }
+
+    void drawPoint(INT32 x, INT32 y, const Pixel &pixel) {
+      drawPoint(y * HorizontalResolution + x, pixel);
+    }
+
+    void drawPoint(const Point &point, const Pixel &pixel) {
+      drawPoint(point.x, point.y, pixel);
+    }
+
+    void fillRect(INT32 x, INT32 y, UINT32 w, UINT32 h, const Pixel &color) {
+      Pixel *basePixel = (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase;
+      Pixel *pointPixel;
+
+      INT32 px, py;
+      INT32 yoffset;
+      for (py = y; py < y + (INT32)h; ++py) {
+        if (py < 0) continue;
+        if (py >= (INT32)VerticalResolution) break;
+        yoffset = py * (INT32)HorizontalResolution;
+        for (px = x; px < x + (INT32)w; ++px) {
+          if (px < 0 || px >= (INT32)HorizontalResolution) continue;
+          pointPixel = basePixel + yoffset + px;
+          pointPixel->Blue = color.Blue;
+          pointPixel->Green = color.Green;
+          pointPixel->Red = color.Red;
+          pointPixel->Reserved = color.Reserved;
+        }
+      }
+    }
+
+    void fillRect(INT32 x, INT32 y, const Rect &rect, const Pixel &color) {
+      fillRect(x, y, rect.w, rect.h, color);
+    }
+
+    void fillRect(const Point &point, const Rect &rect, const Pixel &color) {
+      fillRect(point.x, point.y, rect, color);
+    }
+
+    void fillCircle(INT32 x, INT32 y, UINT32 r, const Pixel &color) {
+      Pixel *basePixel = (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase;
+      Pixel *pointPixel;
+
+      UINT32 r2 = r * r;
+      INT32 px, py, dx, dy;
+      INT32 yoffset;
+      for (py = y - r; py < y + (INT32)r; ++py) {
+        if (py < 0) continue;
+        if (py >= (INT32)VerticalResolution) break;
+        yoffset = py * (INT32)HorizontalResolution;
+        for (px = x - r; px < x + (INT32)r; ++px) {
+          if (px < 0 || px >= (INT32)HorizontalResolution) continue;
+          dx = px - x;
+          dy = py - y;
+          if ((dx * dx) + (dy * dy) > (INT32)r2) continue;
+
+          pointPixel = basePixel + yoffset + px;
+          pointPixel->Blue = color.Blue;
+          pointPixel->Green = color.Green;
+          pointPixel->Red = color.Red;
+          pointPixel->Reserved = color.Reserved;
+        }
+      }
+    }
+
+    void fillCircle(INT32 x, INT32 y, const Circle &circle, const Pixel &color) {
+      fillCircle(x, y, circle.r, color);
+    }
+
+    void fillCircle(const Point &point, const Circle &circle, const Pixel &color) {
+      fillCircle(point.x, point.y, circle, color);
     }
   };
 
@@ -106,10 +214,14 @@ using namespace EfiGame;
 
 extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE *SystemTable) {
   initGame(SystemTable);
-  Graphics::maximizeResolution();
+  // Graphics::maximizeResolution();
 
   Console::clear();
   Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
+  Graphics::Pixel color {0, 127, 255, 0};
+  Graphics::fillRect(0, 0, 100, 100, color);
+  Graphics::fillRect(100, 100, 100, 100, color);
+  Graphics::fillCircle(300, 300, 100, color);
   CHAR16 str[5];
   while (TRUE) {
     Input::getLine(str, 5);
