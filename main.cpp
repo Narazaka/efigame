@@ -102,16 +102,17 @@ namespace EfiGame {
   }
 };
 
+using namespace EfiGame;
 
 extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE *SystemTable) {
-  EfiGame::initGame(SystemTable);
-  EfiGame::Graphics::maximizeResolution();
+  initGame(SystemTable);
+  Graphics::maximizeResolution();
 
-  EfiGame::Console::clear();
-  EfiGame::Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
+  Console::clear();
+  Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
   CHAR16 str[5];
   while (TRUE) {
-    EfiGame::Input::getLine(str, 5);
-    EfiGame::Console::writeLine(str);
+    Input::getLine(str, 5);
+    Console::writeLine(str);
   }
 }
