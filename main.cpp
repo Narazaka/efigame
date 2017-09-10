@@ -9,6 +9,11 @@ namespace EfiGame {
 
   static EFI_SYSTEM_TABLE *SystemTable;
 
+  template <class T> void memset(T *buf, T val, UINTN size) {
+    T *tmp = buf;
+    while (size--) *tmp++ = val;
+  }
+
   namespace Input {
     /** キー入力1つを読み込む キー入力まで待機する */
     auto getChar() {
@@ -141,10 +146,10 @@ namespace EfiGame {
     }
 
     void fillRect(INT32 x, INT32 y, UINT32 w, UINT32 h, const Pixel &color) {
-      Pixel pixels[HorizontalResolution];
-      UINT32 px, py;
+      UINT32 py;
       if (w > HorizontalResolution) w = HorizontalResolution;
-      for (px = 0; px < w; ++px) pixels[px] = color;
+      Pixel pixels[w];
+      memset(pixels, color, w);
       for (py = y; py < y + h; ++py) {
         GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, x, py, w, 1, 0);
       }
@@ -159,28 +164,26 @@ namespace EfiGame {
     }
 
     void fillCircle(INT32 x, INT32 y, UINT32 r, const Pixel &color) {
-      Pixel *basePixel = (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase;
-      Pixel *pointPixel;
+      Pixel pixels[HorizontalResolution];
+      memset(pixels, color, HorizontalResolution);
 
       UINT32 r2 = r * r;
-      INT32 px, py, dx, dy;
-      INT32 yoffset;
-      for (py = y - r; py < y + (INT32)r; ++py) {
-        if (py < 0) continue;
-        if (py >= (INT32)VerticalResolution) break;
-        yoffset = py * (INT32)HorizontalResolution;
-        for (px = x - r; px < x + (INT32)r; ++px) {
-          if (px < 0 || px >= (INT32)HorizontalResolution) continue;
-          dx = px - x;
-          dy = py - y;
-          if ((dx * dx) + (dy * dy) > (INT32)r2) continue;
-
-          pointPixel = basePixel + yoffset + px;
-          pointPixel->Blue = color.Blue;
-          pointPixel->Green = color.Green;
-          pointPixel->Red = color.Red;
-          pointPixel->Reserved = color.Reserved;
-        }
+      INT32 dx, dy, mdx, mdy, rest, start_x, end_x, length;
+      dy = -r;
+      if (y + dy < 0) dy = -y;
+      mdy = r;
+      if (y + mdy > (INT32)VerticalResolution) mdy = VerticalResolution - y;
+      for (; dy < mdy; ++dy) {
+        rest = r2 - dy * dy;
+        dx = -r;
+        while (dx * dx > rest) ++dx;
+        start_x = x + dx;
+        end_x = x - dx;
+        if (!dx || end_x <= 0 || start_x >= (INT32)HorizontalResolution) continue;
+        if (start_x < 0) start_x = 0;
+        if (end_x > (INT32)HorizontalResolution) end_x = HorizontalResolution;
+        length = end_x - start_x;
+        GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, start_x, y + dy, length, 1, 0);
       }
     }
 
@@ -211,6 +214,7 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
   Graphics::Pixel color {0, 127, 255, 0};
   Graphics::Pixel color2 {255, 127, 255, 0};
+  Graphics::Pixel color3 {127, 127, 0, 0};
   Graphics::fillRect(0, 0, 100, 100, color);
   Graphics::fillRect(100, 100, 100, 100, color);
   UINT32 offset = 0;
@@ -220,6 +224,7 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
     //while(a < 1000000) a++;
     Graphics::fillRect(0, offset - 10, Graphics::HorizontalResolution, 10, color2);
     Graphics::fillRect(0, offset, Graphics::HorizontalResolution, 100, color);
+    Graphics::fillCircle(100, offset + 150, 50, color3);
     offset++;
     if (offset >= Graphics::VerticalResolution) offset = 0;
   }
