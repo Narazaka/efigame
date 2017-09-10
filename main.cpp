@@ -2,6 +2,7 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Guid/FileInfo.h>
+#include <string.h>
 
 #include <libc_base.h>
 #include <stdlib.h>
@@ -83,24 +84,8 @@ namespace EfiGame {
     }
 
     void writeNum(INT64 val) {
-      CHAR16 digit;
-      CHAR16 reverse_str[30];
       CHAR16 str[30];
-      bool negative = val < 0;
-      if (negative) val = -val;
-      INT32 i = 0;
-      do {
-        digit = val % 10;
-        reverse_str[i] = L'0' + digit;
-        val /= 10;
-        ++i;
-      } while (val);
-      INT32 length = i;
-      if (negative) str[0] = L'-';
-      for (i = 0; i < length; ++i) {
-        str[i + negative] = reverse_str[length - i - 1];
-      }
-      str[length + negative] = L'\0';
+      itoa(val, str, 10);
       write(str);
     }
 
@@ -123,8 +108,7 @@ namespace EfiGame {
 
     auto open(CHAR16* filename, UINT64 mode = EFI_FILE_MODE_READ) {
       EFI_FILE_PROTOCOL *file;
-      Root->Open(Root, &file, filename, mode, 0);
-      return file;
+      return EFI_SUCCESS == Root->Open(Root, &file, filename, mode, 0) ? file : nullptr;
     }
 
     auto read(EFI_FILE_PROTOCOL *file, void* buf, UINTN size) {
@@ -316,16 +300,18 @@ namespace EfiGame {
 
     #define MAX_IMAGE_FILE_SIZE 1024 * 1024 * 20
 
-    auto loadImageFromFile(CHAR16 *filename) {
+    Image* loadImageFromFile(CHAR16 *filename, UINTN maxFileSize = MAX_IMAGE_FILE_SIZE) {
       auto file = FileSystem::open(filename);
-      UINT8 *buf = (UINT8*)malloc(sizeof(UINT8) * MAX_IMAGE_FILE_SIZE);
-      auto size = FileSystem::read(file, buf, MAX_IMAGE_FILE_SIZE);
+      if (file == nullptr) return nullptr;
+      UINT8 *buf = (UINT8*)malloc(sizeof(UINT8) * maxFileSize);
+      auto size = FileSystem::read(file, buf, maxFileSize);
       auto image = loadImageFromMemory(buf, size);
       free(buf);
       return image;
     }
 
-    void drawImage(Image *image, INT32 x, INT32 y, bool transparent = TRUE) {
+    auto drawImage(Image *image, INT32 x, INT32 y, bool transparent = TRUE) {
+      if (image == nullptr) return false;
       Pixel* base = (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase;
       Pixel* pixels, *image_pixel, *base_pixel;
       if (transparent) {
@@ -359,6 +345,92 @@ namespace EfiGame {
       }
       GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, x, y, image->x, image->y, 0);
       if (transparent) free(pixels);
+      return true;
+    }
+/*
+    void initFont() {
+      auto fonts = FileSystem::open((STRING)L"fonts");
+      CHAR16 path[50];
+      while(TRUE) {
+        auto info = FileSystem::readdir(fonts);
+        if (info == nullptr) break;
+        strcpy(path, (STRING)L"fonts\\");
+        strcat(path, info->FileName);
+        Console::writeLine(path);
+      }
+    }
+*/
+
+    #define FONT_FILE_MAX_SIZE 1024
+    #define FONT_MAX_PIXEL_SIZE 1024
+    auto getFontImageName(CHAR16 c, CHAR16 *path) {
+      CHAR16 code[10];
+      itoa(c, code, 10);
+      strcpy(path, (STRING)L"fonts\\");
+      strcat(path, code);
+      strcat(path, (STRING)L".png");
+      return path;
+    }
+
+    auto getFontImage(CHAR16 c) {
+      CHAR16 path[50];
+      getFontImageName(c, path);
+      return Graphics::loadImageFromFile(path, FONT_FILE_MAX_SIZE);
+    }
+
+    auto drawChar(CHAR16 c, INT32 x, INT32 y, bool transparent = TRUE) {
+      auto image = getFontImage(c);
+      return drawImage(image, x, y, transparent);
+    }
+
+    struct _DrawStrInfo {
+      INT32 dx;
+      INT32 dy;
+      INT32 w;
+      INT32 h;
+      INT32 lines;
+    };
+
+    typedef struct _DrawStrInfo DrawStrInfo;
+
+    auto drawStr(CHAR16 *str, Pixel color, INT32 x, INT32 y, INT32 width = 0, bool transparent = TRUE, DrawStrInfo *info = nullptr) {
+      UINTN length = strlen(str);
+      INT32 dx = 0, dy = 0, w = 0, h = 0, lines = 1;
+      INT32 line_height = 0;
+      Pixel pixels[FONT_MAX_PIXEL_SIZE];
+      memset(pixels, color, FONT_MAX_PIXEL_SIZE);
+      for (INT32 i = 0; i < length; ++i) {
+        if (str[i] == L'\r') {
+          dx = 0;
+          continue;
+        } else if (str[i] == L'\n') {
+          ++lines;
+          dy += line_height;
+          line_height = 0;
+        }
+        auto image = getFontImage(str[i]);
+        if (image == nullptr) continue;
+        if (width && width < dx + image->x) {
+          ++lines;
+          dx = 0;
+          dy += line_height;
+          line_height = 0;
+        }
+        image->pixels = pixels; // color
+        drawImage(image, x + dx, y + dy, transparent);
+        dx += image->x;
+        if (line_height < image->y) line_height = image->y;
+        if (w < dx) w = dx;
+      }
+      h = dy + line_height;
+      if (info != nullptr) {
+        info->dx = dx;
+        info->dy = dy;
+        info->w = w;
+        info->h = h;
+        info->lines = lines;
+      }
+      return info;
     }
   };
 
@@ -380,6 +452,7 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
   Graphics::Pixel white {255, 255, 255, 0};
   Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
+  Graphics::Pixel black {0, 0, 0, 0};
   Graphics::Pixel color {0, 127, 255, 0};
   // Graphics::Pixel color2 {255, 127, 255, 0};
   // Graphics::Pixel color3 {127, 127, 0, 0};
@@ -413,6 +486,8 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Graphics::drawImage(image, 10, 10);
   Graphics::drawImage(image, 100, 100);
   Graphics::drawImage(image, 200, 200, false);
+  Graphics::drawChar(L'あ', 300, 300);
+  Graphics::drawStr((STRING)L"優子「みんながなかよくなりますようにー！！」\r\nEND", black, 300, 400, 200);
   while (TRUE);
   /*CHAR16 str[5];
   while (TRUE) {

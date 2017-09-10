@@ -23,4 +23,25 @@ void* realloc_sized(void *ptr, UINTN old_size, UINTN new_size) {
   return new_ptr;
 }
 
+auto itoa(INT64 val, CHAR16* str, INT32 radix) {
+  CHAR16 digit;
+  CHAR16 reverse_str[30];
+  bool negative = val < 0;
+  if (negative) val = -val;
+  INT32 i = 0;
+  do {
+    digit = val % radix;
+    reverse_str[i] = digit < 10 ? L'0' + digit : L'A' + digit - 10;
+    val /= radix;
+    ++i;
+  } while (val);
+  INT32 length = i;
+  if (negative) str[0] = L'-';
+  for (i = 0; i < length; ++i) {
+    str[i + negative] = reverse_str[length - i - 1];
+  }
+  str[length + negative] = L'\0';
+  return str;
+}
+
 #endif
