@@ -1,3 +1,6 @@
 [submodule "uefi-headers"]
 	path = uefi-headers
 	url = git@github.com:kiznit/uefi-headers.git
+[submodule "stb"]
+	path = stb
+	url = git@github.com:nothings/stb.git
