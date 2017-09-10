@@ -252,7 +252,7 @@ namespace EfiGame {
       memset(pixels, color, HorizontalResolution);
 
       UINT32 r2 = r * r;
-      INT32 dx, dy, mdx, mdy, rest, start_x, end_x, length;
+      INT32 dx, dy, mdy, rest, start_x, end_x, length;
       dy = -r;
       if (y + dy < 0) dy = -y;
       mdy = r;
@@ -381,15 +381,13 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Graphics::Pixel white {255, 255, 255, 0};
   Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
   Graphics::Pixel color {0, 127, 255, 0};
-  Graphics::Pixel color2 {255, 127, 255, 0};
-  Graphics::Pixel color3 {127, 127, 0, 0};
+  // Graphics::Pixel color2 {255, 127, 255, 0};
+  // Graphics::Pixel color3 {127, 127, 0, 0};
   Graphics::fillRect(0, 0, 100, 100, color);
   Graphics::fillRect(100, 100, 100, 100, color);
-  UINT32 offset = 0;
-  UINT32 a;
-  /*
+/*  UINT32 offset = 0;
+
   while(TRUE) {
-    a = 0;
     //while(a < 1000000) a++;
     Graphics::fillRect(0, offset - 10, Graphics::HorizontalResolution, 10, color2);
     Graphics::fillRect(0, offset, Graphics::HorizontalResolution, 100, color);
