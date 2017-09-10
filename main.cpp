@@ -59,6 +59,33 @@ namespace EfiGame {
       write(str);
       write((STRING)L"\r\n");
     }
+
+    void writeNum(INT64 val) {
+      CHAR16 digit;
+      CHAR16 reverse_str[30];
+      CHAR16 str[30];
+      bool negative = val < 0;
+      if (negative) val = -val;
+      INT32 i = 0;
+      do {
+        digit = val % 10;
+        reverse_str[i] = L'0' + digit;
+        val /= 10;
+        ++i;
+      } while (val);
+      INT32 length = i;
+      if (negative) str[0] = L'-';
+      for (i = 0; i < length; ++i) {
+        str[i + negative] = reverse_str[length - i - 1];
+      }
+      str[length + negative] = L'\0';
+      write(str);
+    }
+
+    void writeNumLine(INT64 val) {
+      writeNum(val);
+      write((STRING)L"\r\n");
+    }
   };
 
   namespace Graphics {
