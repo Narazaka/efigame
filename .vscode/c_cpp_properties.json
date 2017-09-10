@@ -5,7 +5,9 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
+                "${workspaceRoot}/stb",
                 "${workspaceRoot}/uefi-headers/Include",
+                "${workspaceRoot}/libc",
                 "${workspaceRoot}/include",
                 "${workspaceRoot}"
             ],
@@ -15,7 +17,9 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
+                    "${workspaceRoot}/stb",
                     "${workspaceRoot}/uefi-headers/Include",
+                    "${workspaceRoot}/libc",
                     "${workspaceRoot}/include",
                     "${workspaceRoot}"
                 ],
@@ -28,7 +32,9 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
+                "${workspaceRoot}/stb",
                 "${workspaceRoot}/uefi-headers/Include",
+                "${workspaceRoot}/libc",
                 "${workspaceRoot}/include",
                 "${workspaceRoot}"
             ],
@@ -38,7 +44,9 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
+                    "${workspaceRoot}/stb",
                     "${workspaceRoot}/uefi-headers/Include",
+                    "${workspaceRoot}/libc",
                     "${workspaceRoot}/include",
                     "${workspaceRoot}"
                 ],
@@ -54,7 +62,9 @@
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/ucrt",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/shared",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/winrt",
+                "${workspaceRoot}/stb",
                 "${workspaceRoot}/uefi-headers/Include",
+                "${workspaceRoot}/libc",
                 "${workspaceRoot}/include",
                 "${workspaceRoot}"
             ],
@@ -70,7 +80,9 @@
                     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/ucrt",
                     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/shared",
                     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/winrt",
+                    "${workspaceRoot}/stb",
                     "${workspaceRoot}/uefi-headers/Include",
+                    "${workspaceRoot}/libc",
                     "${workspaceRoot}/include",
                     "${workspaceRoot}"
                 ],

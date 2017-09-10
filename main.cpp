@@ -1,18 +1,40 @@
 #include <Uefi.h>
+#include <Protocol/SimpleFileSystem.h>
 #include <Protocol/GraphicsOutput.h>
-#include <cmath>
+#include <Guid/FileInfo.h>
 
+#include <libc_base.h>
+#include <stdlib.h>
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ASSERT(x)
+#define STBI_NO_STDIO
+#define STBI_ONLY_PNG
+#define STBI_MALLOC(sz) malloc(sz)
+#define STBI_FREE(p) free(p)
+#define STBI_REALLOC_SIZED(p,oldsz,newsz) realloc_sized(p,oldsz,newsz)
+#include <stb_image.h>
+
+EFI_GUID gEfiSimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
 EFI_GUID gEfiGraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+
+template <class T> void *memcpy(T *dest, const T *src, UINTN n)
+{
+  T *d = dest;
+  T const *s = src;
+  while (n--) *d++ = *s++;
+  return dest;
+}
+
+template <class T> void* memset(T *buf, T val, UINTN size) {
+  T *tmp = buf;
+  while (size--) *tmp++ = val;
+  return buf;
+}
 
 namespace EfiGame {
   typedef CHAR16* STRING;
 
   static EFI_SYSTEM_TABLE *SystemTable;
-
-  template <class T> void memset(T *buf, T val, UINTN size) {
-    T *tmp = buf;
-    while (size--) *tmp++ = val;
-  }
 
   namespace Input {
     /** キー入力1つを読み込む キー入力まで待機する */
@@ -85,6 +107,41 @@ namespace EfiGame {
     void writeNumLine(INT64 val) {
       writeNum(val);
       write((STRING)L"\r\n");
+    }
+  };
+
+  namespace FileSystem {
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SimpleFileSystemProtocol;
+    EFI_FILE_PROTOCOL *Root;
+
+    #define MAX_FILE_BUF_SIZE 1024 * 1024 * 10
+
+    auto initFileSystem() {
+      SystemTable->BootServices->LocateProtocol(&gEfiSimpleFileSystemProtocolGuid, nullptr, (void**)&SimpleFileSystemProtocol);
+      SimpleFileSystemProtocol->OpenVolume(SimpleFileSystemProtocol, &Root);
+    }
+
+    auto open(CHAR16* filename, UINT64 mode = EFI_FILE_MODE_READ) {
+      EFI_FILE_PROTOCOL *file;
+      Root->Open(Root, &file, filename, mode, 0);
+      return file;
+    }
+
+    auto read(EFI_FILE_PROTOCOL *file, void* buf, UINTN size) {
+      file->Read(file, &size, buf);
+      return size;
+    }
+
+    auto close(EFI_FILE_PROTOCOL *file) {
+      file->Close(file);
+    }
+
+    #define EFI_FILE_INFO_MAX 1024
+
+    auto readdir(EFI_FILE_PROTOCOL *file) {
+      EFI_FILE_INFO *child = (EFI_FILE_INFO*)malloc(EFI_FILE_INFO_MAX);
+      auto size = read(file, child, EFI_FILE_INFO_MAX);
+      return size ? child : nullptr;
     }
   };
 
@@ -221,11 +278,95 @@ namespace EfiGame {
     void fillCircle(const Point &point, const Circle &circle, const Pixel &color) {
       fillCircle(point.x, point.y, circle, color);
     }
+
+    struct _Image {
+      Pixel *pixels;
+      UINT8 *alphas;
+      int x;
+      int y;
+      int composition;
+      int length;
+    };
+
+    typedef struct _Image Image;
+
+    auto loadImageFromMemory(const UINT8 *buf, int len) {
+      Image *image = (Image*)malloc(sizeof(Image));
+
+      UINT8* src_pixels = stbi_load_from_memory(buf, len, &image->x, &image->y, &image->composition, 4);
+      int length = image->length = image->x * image->y;
+      image->pixels = (Pixel*)malloc(sizeof(Pixel) * length);
+      image->alphas = (UINT8*)malloc(sizeof(UINT8) * length);
+      Pixel *pixel = image->pixels;
+      UINT8 *alpha = image->alphas;
+      int offset;
+      for (int pos = 0; pos < length; ++pos) {
+        pixel->Red = *(src_pixels + offset);
+        pixel->Green = *(src_pixels + offset + 1);
+        pixel->Blue = *(src_pixels + offset + 2);
+        pixel->Reserved = 0;
+        *alpha = *(src_pixels + offset + 3);
+        offset += 4;
+        ++pixel;
+        ++alpha;
+      }
+      stbi_image_free(src_pixels);
+      return image;
+    }
+
+    #define MAX_IMAGE_FILE_SIZE 1024 * 1024 * 20
+
+    auto loadImageFromFile(CHAR16 *filename) {
+      auto file = FileSystem::open(filename);
+      UINT8 *buf = (UINT8*)malloc(sizeof(UINT8) * MAX_IMAGE_FILE_SIZE);
+      auto size = FileSystem::read(file, buf, MAX_IMAGE_FILE_SIZE);
+      auto image = loadImageFromMemory(buf, size);
+      free(buf);
+      return image;
+    }
+
+    void drawImage(Image *image, INT32 x, INT32 y, bool transparent = TRUE) {
+      Pixel* base = (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase;
+      Pixel* pixels, *image_pixel, *base_pixel;
+      if (transparent) {
+        pixels = (Pixel*)malloc(sizeof(Pixel) * image->length);
+        memcpy(pixels, image->pixels, image->length);
+        INT32 dx, dy, image_offset, image_yoffset, base_offset, base_yoffset, alpha;
+        double alpha1;
+        for (dy = 0; dy < image->y; ++dy) {
+          image_yoffset = dy * image->x;
+          base_yoffset = (y + dy) * HorizontalResolution;
+          for (dx = 0; dx < image->x; ++dx) {
+            image_offset = image_yoffset + dx;
+            alpha = image->alphas[image_offset];
+            if (alpha != 255) {
+              base_offset = base_yoffset + x + dx;
+              if (alpha == 0) {
+                pixels[image_offset] = base[base_offset];
+              } else {
+                alpha1 = alpha / 255.0;
+                image_pixel = &pixels[image_offset];
+                base_pixel = &base[base_offset];
+                image_pixel->Red = (image_pixel->Red * alpha1) + base_pixel->Red * (1.0 - alpha1);
+                image_pixel->Green = (image_pixel->Green * alpha1) + base_pixel->Green * (1.0 - alpha1);
+                image_pixel->Blue = (image_pixel->Blue * alpha1) + base_pixel->Blue * (1.0 - alpha1);
+              }
+            }
+          }
+        }
+      } else {
+        pixels = image->pixels;
+      }
+      GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, x, y, image->x, image->y, 0);
+      if (transparent) free(pixels);
+    }
   };
 
   void initGame(EFI_SYSTEM_TABLE *SystemTable) {
+    libc::init(SystemTable);
     EfiGame::SystemTable = SystemTable;
     Graphics::initGraphics();
+    FileSystem::initFileSystem();
   }
 };
 
@@ -246,6 +387,7 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Graphics::fillRect(100, 100, 100, 100, color);
   UINT32 offset = 0;
   UINT32 a;
+  /*
   while(TRUE) {
     a = 0;
     //while(a < 1000000) a++;
@@ -254,7 +396,26 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
     Graphics::fillCircle(100, offset + 150, 50, color3);
     offset++;
     if (offset >= Graphics::VerticalResolution) offset = 0;
+  }*/
+
+  while (TRUE) {
+    auto info = FileSystem::readdir(FileSystem::Root);
+    if (info == nullptr) break;
+    Console::write((EfiGame::STRING)L"- ");
+    Console::writeLine((EfiGame::STRING)info->FileName);
   }
+  Console::write((EfiGame::STRING)L"loading... ");
+  auto *image = Graphics::loadImageFromFile((EfiGame::STRING)L"surface0.png");
+  Console::writeLine((EfiGame::STRING)L"done");
+  Console::writeNumLine(image->x);
+  Console::writeNumLine(image->y);
+  Console::writeNumLine(image->length);
+  Console::writeNumLine(image->composition);
+  Console::writeLine((EfiGame::STRING)L"---");
+  Graphics::drawImage(image, 10, 10);
+  Graphics::drawImage(image, 100, 100);
+  Graphics::drawImage(image, 200, 200, false);
+  while (TRUE);
   /*CHAR16 str[5];
   while (TRUE) {
     Input::getLine(str, 5);

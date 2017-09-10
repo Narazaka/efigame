@@ -1,8 +1,8 @@
-all: fs/EFI/BOOT/BOOTX64.EFI
+all: fs/EFI/BOOT/BOOTX64.EFI fs/surface0.png
 
 fs/EFI/BOOT/BOOTX64.EFI: main.cpp include/ProcessorBind.h
 	mkdir -p fs/EFI/BOOT
-	x86_64-w64-mingw32-g++ -std=c++14 -Wall -Wextra -e efi_main -Iuefi-headers/Include -Iinclude -nostdlib \
+	x86_64-w64-mingw32-g++ -std=c++14 -Wall -Wextra -e efi_main -Iuefi-headers/Include -Istb -Iinclude -Ilibc -nostdlib \
 	-fno-builtin -Wl,--subsystem,10 -mno-stack-arg-probe -o $@ $<
 
 include/ProcessorBind.h:
@@ -17,3 +17,6 @@ clean:
 	rm include/ProcessorBind.h
 
 .PHONY: clean
+
+fs/surface0.png: surface0.png
+	cp surface0.png fs/surface0.png
