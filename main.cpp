@@ -456,8 +456,8 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
   Graphics::Pixel black {0, 0, 0, 0};
   Graphics::Pixel color {0, 127, 255, 0};
-  // Graphics::Pixel color2 {255, 127, 255, 0};
-  // Graphics::Pixel color3 {127, 127, 0, 0};
+  Graphics::Pixel color2 {255, 127, 255, 0};
+  Graphics::Pixel color3 {127, 127, 0, 0};
   Graphics::fillRect(0, 0, 100, 100, color);
   Graphics::fillRect(100, 100, 100, 100, color);
 /*  UINT32 offset = 0;
@@ -490,10 +490,24 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Graphics::drawImage(image, 200, 200, false);
   Graphics::drawChar(L'あ', 300, 300);
   Graphics::drawStr((STRING)L"優子「みんながなかよくなりますようにー！！」\r\nEND", black, 300, 400, 200);
-  while (TRUE);
-  /*CHAR16 str[5];
+  // while (TRUE);
+  EFI_INPUT_KEY key;
+  CHAR16 str[2];
+  str[1] = L'\0';
+  UINT32 offset = 0;
   while (TRUE) {
-    Input::getLine(str, 5);
-    Console::writeLine(str);
-  }*/
+    if (EFI_SUCCESS == SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &key)) {
+      str[0] = key.UnicodeChar;
+      if (str[0] == L'\r') {
+        Console::write((STRING)L"\r\n");
+      } else {
+        Console::write(str);
+      }
+    }
+
+    Graphics::fillRect(550, offset - 60, 100, 60, color2);
+    Graphics::fillCircle(600, offset, 50, color3);
+    offset++;
+    if (offset >= Graphics::VerticalResolution) offset = 0;
+  }
 }
