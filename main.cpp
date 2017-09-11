@@ -459,6 +459,7 @@ namespace EfiGame {
       if (file == nullptr) return nullptr;
       UINT8 *buf = (UINT8*)malloc(sizeof(UINT8) * maxFileSize);
       auto size = FileSystem::read(file, buf, maxFileSize);
+      FileSystem::close(file);
       auto image = loadImageFromMemory(buf, size);
       free(buf);
       return image;
