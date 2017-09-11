@@ -276,6 +276,46 @@ namespace EfiGame {
 
     typedef struct _Image Image;
 
+    auto getRectImage(UINT32 w, UINT32 h, const Pixel &color) {
+      auto length = w * h;
+      Image *image = (Image*)malloc(sizeof(Image));
+      image->pixels = (Pixel*)malloc(sizeof(Pixel) * length);
+      memset(image->pixels, color, length);
+      image->alphas = (UINT8*)malloc(sizeof(UINT8) * length);
+      memset(image->alphas, 255, length);
+      image->x = w;
+      image->y = h;
+      image->length = length;
+      image->composition = 4;
+      return image;
+    }
+
+    auto getCircleImage(UINT32 r, const Pixel &color) {
+      auto R = r * 2;
+      auto length = R * R;
+      Image *image = (Image*)malloc(sizeof(Image));
+      image->pixels = (Pixel*)malloc(sizeof(Pixel) * length);
+      memset(image->pixels, color, length);
+      image->alphas = (UINT8*)malloc(sizeof(UINT8) * length);
+      memset(image->alphas, 0, length);
+      UINT32 r2 = r * r;
+      INT32 dx, dy, mdy, rest, yoffset;
+      mdy = r;
+      for (dy = -r; dy < mdy; ++dy) {
+        rest = r2 - dy * dy;
+        dx = -r;
+        while (dx * dx > rest) ++dx;
+        yoffset = (r + dy) * R;
+        if (!dx) continue;
+        memset(image->alphas + yoffset + r + dx, 255, -2 * dx);
+      }
+      image->x = R;
+      image->y = R;
+      image->length = length;
+      image->composition = 4;
+      return image;
+    }
+
     auto loadImageFromMemory(const UINT8 *buf, int len) {
       Image *image = (Image*)malloc(sizeof(Image));
 
@@ -491,6 +531,8 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   Graphics::drawChar(L'あ', 300, 300);
   Graphics::drawStr((STRING)L"優子「みんながなかよくなりますようにー！！」\r\nEND", black, 300, 400, 200);
   // while (TRUE);
+  auto rect = Graphics::getRectImage(100, 60, color2);
+  auto circle = Graphics::getCircleImage(50, color3);
   EFI_INPUT_KEY key;
   CHAR16 str[2];
   str[1] = L'\0';
@@ -505,8 +547,10 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
       }
     }
 
-    Graphics::fillRect(550, offset - 60, 100, 60, color2);
-    Graphics::fillCircle(600, offset, 50, color3);
+    Graphics::drawImage(rect, 550, offset - 60, false);
+    Graphics::drawImage(circle, 550, offset - 50);
+    // Graphics::fillRect(550, offset - 60, 100, 60, color2);
+    // Graphics::fillCircle(600, offset, 50, color3);
     offset++;
     if (offset >= Graphics::VerticalResolution) offset = 0;
   }
