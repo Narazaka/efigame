@@ -1,4 +1,5 @@
 #include <Uefi.h>
+#include <Protocol/SimplePointer.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Guid/FileInfo.h>
@@ -17,6 +18,7 @@
 #define STBI_REALLOC_SIZED(p,oldsz,newsz) realloc_sized(p,oldsz,newsz)
 #include <stb_image.h>
 
+EFI_GUID gEfiSimplePointerProtocolGuid = EFI_SIMPLE_POINTER_PROTOCOL_GUID;
 EFI_GUID gEfiSimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
 EFI_GUID gEfiGraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
@@ -40,12 +42,24 @@ namespace EfiGame {
   static EFI_SYSTEM_TABLE *SystemTable;
 
   namespace Input {
+    EFI_SIMPLE_POINTER_PROTOCOL *SimplePointerProtocol;
+
+    auto initInput() {
+      SystemTable->BootServices->LocateProtocol(&gEfiSimplePointerProtocolGuid, nullptr, (void**)&SimplePointerProtocol);
+    }
+
+    // keyboard
+
+    static bool triggerKeyEvent = true;
+    static void (*onKeyPress)(CHAR16 key);
+
     /** キー入力1つを読み込む キー入力まで待機する */
     auto getChar() {
       EFI_INPUT_KEY key;
       UINT64 waitIdx;
       SystemTable->BootServices->WaitForEvent(1, &(SystemTable->ConIn->WaitForKey), &waitIdx);
       SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &key);
+      if (triggerKeyEvent && onKeyPress != nullptr) onKeyPress(key.UnicodeChar);
       return key.UnicodeChar;
     }
 
@@ -66,8 +80,106 @@ namespace EfiGame {
       return offset;
     }
 
-    auto onKeyEvent() {
+    /**
+     * 現在たまっているキー入力を取得する
+     *
+     * たまっていなければ-1を返しなにも読み取らない
+     */
+    auto readKeyStroke() {
+      EFI_INPUT_KEY key;
+      if (EFI_SUCCESS == SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &key)) {
+        if (triggerKeyEvent && onKeyPress != nullptr) onKeyPress(key.UnicodeChar);
+        return key.UnicodeChar;
+      } else {
+        return (CHAR16)-1;
+      }
+    }
 
+    // mouse
+
+    struct _MouseScreenCoordinateState {
+      /** マウスポインタ移動分をスクリーン座標として追従するか */
+      bool tracking = false;
+      /** マウスのスクリーンX座標 -1なら無効 */
+      INT32 x = -1;
+      /** マウスのスクリーンY座標 -1なら無効 */
+      INT32 y = -1;
+    };
+
+    typedef struct _MouseScreenCoordinateState MouseScreenCoordinateState;
+
+    static MouseScreenCoordinateState mouse;
+
+    struct _MouseButtonState {
+      /** マウスの左ボタン押下状態 */
+      bool leftPress = false;
+      /** マウスの右ボタン押下状態 */
+      bool rightPress = false;
+    };
+
+    typedef struct _MouseButtonState MouseButtonState;
+
+    static MouseButtonState mouseButton;
+
+    /** マウスポインタ移動分をスクリーン座標として追従するか設定する */
+    auto setTrackMouseScreenCoordinate(bool track, INT32 initial_x = -1, INT32 initial_y = -1) {
+      mouse.tracking = track;
+      if (mouse.tracking) {
+        mouse.x = initial_x >= 0 ? initial_x : 0;
+        mouse.y = initial_y >= 0 ? initial_y : 0;
+      } else {
+        mouse.x = -1;
+        mouse.y = -1;
+      }
+    }
+
+    static bool triggerMouseEvent = true;
+    static void (*onMouseEvent)(EFI_SIMPLE_POINTER_STATE state);
+    static void (*onMouseMove)(INT32 RelativeMovementX, INT32 RelativeMovementY);
+    static void (*onMouseWheelMove)(INT32 RelativeMovementZ);
+    static void (*onMouseLeftDown)();
+    static void (*onMouseLeftUp)();
+    static void (*onMouseLeftClick)();
+    static void (*onMouseRightDown)();
+    static void (*onMouseRightUp)();
+    static void (*onMouseRightClick)();
+
+    auto getPointerState() {
+      EFI_SIMPLE_POINTER_STATE state;
+      SimplePointerProtocol->GetState(SimplePointerProtocol, &state);
+      if (mouse.tracking) {
+        mouse.x += state.RelativeMovementX;
+        mouse.y += state.RelativeMovementY;
+      }
+      bool leftPressChange, rightPressChange;
+      if (triggerMouseEvent) {
+        if (onMouseEvent) onMouseEvent(state);
+        if ((state.RelativeMovementX || state.RelativeMovementY) && onMouseMove) onMouseMove(state.RelativeMovementX, state.RelativeMovementY);
+        if (state.RelativeMovementY && onMouseWheelMove) onMouseWheelMove(state.RelativeMovementY);
+        leftPressChange = mouseButton.leftPress != state.LeftButton;
+        rightPressChange = mouseButton.rightPress != state.RightButton;
+      }
+      mouseButton.leftPress = state.LeftButton;
+      mouseButton.rightPress = state.RightButton;
+      if (triggerMouseEvent) {
+        if (leftPressChange) {
+          if (state.LeftButton) {
+            if (onMouseLeftDown) onMouseLeftDown();
+          } else {
+            if (onMouseLeftUp) onMouseLeftUp();
+            if (onMouseLeftClick) onMouseLeftClick();
+          }
+        }
+        if (rightPressChange) {
+          if (state.RightButton) {
+            if (onMouseRightDown) onMouseRightDown();
+          } else {
+            if (onMouseRightUp) onMouseRightUp();
+            if (onMouseRightClick) onMouseRightClick();
+          }
+        }
+      }
+      return state;
     }
   };
 
@@ -476,9 +588,40 @@ namespace EfiGame {
     }
   };
 
+  namespace Main {
+    static void (*onUpdate)();
+
+    void _onKeyPress() {
+      Input::readKeyStroke();
+    }
+
+    void _onTick() {
+      Input::getPointerState();
+      if (onUpdate) onUpdate();
+    }
+
+    void start(UINT64 tick_interval = 333'300) {
+      EFI_EVENT events[2];
+      EFI_EVENT timerEvent;
+      SystemTable->BootServices->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timerEvent);
+      SystemTable->BootServices->SetTimer(timerEvent, TimerPeriodic, tick_interval);
+      events[0] = SystemTable->ConIn->WaitForKey;
+      events[1] = timerEvent;
+      UINTN eventIndex;
+      while(TRUE) {
+        SystemTable->BootServices->WaitForEvent(2, events, &eventIndex);
+        switch (eventIndex) {
+          case 0: _onKeyPress(); break;
+          case 1: _onTick(); break;
+        }
+      }
+    }
+  };
+
   void initGame(EFI_SYSTEM_TABLE *SystemTable) {
     libc::init(SystemTable);
     EfiGame::SystemTable = SystemTable;
+    Input::initInput();
     Graphics::initGraphics();
     FileSystem::initFileSystem();
   }
@@ -486,9 +629,44 @@ namespace EfiGame {
 
 using namespace EfiGame;
 
+static UINT64 tick;
+class Game {
+private:
+public:
+  static void start() {
+    tick = 0;
+    Main::onUpdate = &onUpdate;
+    Main::start();
+  }
+private:
+  static void onUpdate() {
+    if (tick < 90) phase1(tick);
+    else 1;
+    if (!(tick % 30)) {
+      Console::writeNum(tick / 30);
+      Console::write((EfiGame::STRING)L"\r");
+    }
+    ++tick;
+  }
+
+  static void phase1(UINT64 localTick) {
+    if (tick == 5 || tick == 85) {
+      Graphics::Pixel unitybgc {55, 44, 33, 0};
+      Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, unitybgc);
+    }
+    if (tick == 7) {
+      auto *image = Graphics::loadImageFromFile((EfiGame::STRING)L"Uefi_logo_s_bg.png");
+      Graphics::drawImage(image, (Graphics::HorizontalResolution - image->x) / 2, (Graphics::VerticalResolution - image->y) / 2, false);
+      // Graphics::drawImage(image, 0, 0, false);
+    }
+  }
+};
+
 extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE *SystemTable) {
   initGame(SystemTable);
   // Graphics::maximizeResolution();
+  Game::start();
+  return;
 
   Console::clear();
   Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
