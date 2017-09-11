@@ -23,6 +23,18 @@ void* realloc_sized(void *ptr, UINTN old_size, UINTN new_size) {
   return new_ptr;
 }
 
+auto llabs(long long n) {
+  return n >= 0 ? n : -n;
+}
+
+auto labs(long n) {
+  return n >= 0 ? n : -n;
+}
+
+auto abs(int n) {
+  return n >= 0 ? n : -n;
+}
+
 auto itoa(INT64 val, CHAR16* str, INT32 radix) {
   CHAR16 digit;
   CHAR16 reverse_str[30];
