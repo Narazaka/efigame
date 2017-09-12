@@ -690,7 +690,7 @@ public:
       Graphics::Pixel white {255, 255, 255, 0};
       Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
       auto *image = Graphics::loadImageFromFile((STRING)L"title_logo.png");
-      Graphics::drawImage(image, (Graphics::HorizontalResolution - image->x) / 2, (Graphics::VerticalResolution - image->y) / 2 - 50, false);
+      Graphics::drawImage(image, (Graphics::HorizontalResolution - image->x) / 2, (Graphics::VerticalResolution - image->y) / 2 - 50);
       free(image);
     }
     if (tick % 30 == 1) {
