@@ -37,8 +37,6 @@ template <class T> void* memset(T *buf, T val, UINTN size) {
 }
 
 namespace EfiGame {
-  typedef CHAR16* STRING;
-
   static EFI_SYSTEM_TABLE *SystemTable;
 
   namespace Console {
@@ -46,13 +44,13 @@ namespace EfiGame {
       SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
     }
 
-    auto write(STRING str) {
+    auto write(EFI_STRING str) {
       SystemTable->ConOut->OutputString(SystemTable->ConOut, str);
     }
 
-    auto writeLine(STRING str) {
+    auto writeLine(EFI_STRING str) {
       write(str);
-      write((STRING)L"\r\n");
+      write((EFI_STRING)L"\r\n");
     }
 
     void writeNum(INT64 val) {
@@ -63,7 +61,7 @@ namespace EfiGame {
 
     void writeNumLine(INT64 val) {
       writeNum(val);
-      write((STRING)L"\r\n");
+      write((EFI_STRING)L"\r\n");
     }
   };
 
@@ -90,7 +88,7 @@ namespace EfiGame {
     }
 
     /** 改行が来るまでキー入力を読み込む(改行を含まない) バッファの終端がくるか改行キー入力まで待機する */
-    auto getLine(STRING str, INT32 size) {
+    auto getLine(EFI_STRING str, INT32 size) {
       CHAR16 key;
       INT32 offset = 0;
       size--; // \0の分
@@ -504,12 +502,12 @@ namespace EfiGame {
     }
 /*
     void initFont() {
-      auto fonts = FileSystem::open((STRING)L"fonts");
+      auto fonts = FileSystem::open((EFI_STRING)L"fonts");
       CHAR16 path[50];
       while(TRUE) {
         auto info = FileSystem::readdir(fonts);
         if (info == nullptr) break;
-        strcpy(path, (STRING)L"fonts\\");
+        strcpy(path, (EFI_STRING)L"fonts\\");
         strcat(path, info->FileName);
         Console::writeLine(path);
       }
@@ -521,9 +519,9 @@ namespace EfiGame {
     auto getFontImageName(CHAR16 c, CHAR16 *path) {
       CHAR16 code[10];
       itoa(c, code, 10);
-      strcpy(path, (STRING)L"fonts\\");
+      strcpy(path, (EFI_STRING)L"fonts\\");
       strcat(path, code);
-      strcat(path, (STRING)L".png");
+      strcat(path, (EFI_STRING)L".png");
       return path;
     }
 
@@ -668,7 +666,7 @@ public:
       Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, unitybgc);
     }
     if (tick == 5) {
-      auto *image = Graphics::loadImageFromFile((EfiGame::STRING)L"Uefi_logo_s_bg.png");
+      auto *image = Graphics::loadImageFromFile((EFI_STRING)L"Uefi_logo_s_bg.png");
       Graphics::drawImage(image, (Graphics::HorizontalResolution - image->x) / 2, (Graphics::VerticalResolution - image->y) / 2, false);
       free(image);
       // Graphics::drawImage(image, 0, 0, false);
@@ -689,13 +687,13 @@ public:
     if (tick == 1) {
       Graphics::Pixel white {255, 255, 255, 0};
       Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
-      auto *image = Graphics::loadImageFromFile((STRING)L"title_logo.png");
+      auto *image = Graphics::loadImageFromFile((EFI_STRING)L"title_logo.png");
       Graphics::drawImage(image, (Graphics::HorizontalResolution - image->x) / 2, (Graphics::VerticalResolution - image->y) / 2 - 50);
       free(image);
     }
     if (tick % 30 == 1) {
       Graphics::Pixel black {0, 0, 0, 0};
-      Graphics::drawStr((STRING)L"PUSH ANY KEY", black, (Graphics::HorizontalResolution - 150) / 2, Graphics::VerticalResolution/ 2 + 100);
+      Graphics::drawStr((EFI_STRING)L"PUSH ANY KEY", black, (Graphics::HorizontalResolution - 150) / 2, Graphics::VerticalResolution/ 2 + 100);
     }
     if (tick % 30 == 16) {
       Graphics::Pixel white {255, 255, 255, 0};
@@ -729,8 +727,8 @@ public:
   }
 
   static void onMouseMove(INT32 rx, INT32 ry) {
-    // if (!backupPx) backupPx = Graphics::loadImageFromFile((STRING)L"cursor.png");
-    // if (!cursorImage) cursorImage = Graphics::loadImageFromFile((STRING)L"cursor.png");
+    // if (!backupPx) backupPx = Graphics::loadImageFromFile((EFI_STRING)L"cursor.png");
+    // if (!cursorImage) cursorImage = Graphics::loadImageFromFile((EFI_STRING)L"cursor.png");
     if (prevX >= 0) Graphics::drawImage(backupPx, prevX, prevY);
     backupCursorPixel();
     Graphics::drawImage(cursorImage, Input::mouse.x, Input::mouse.y);
@@ -784,9 +782,9 @@ public:
     if (tick > 3 && novelToNext) {
       next();
     } else if (tick == 0) {
-      Console::writeLine((STRING)L"LOADING...");
+      Console::writeLine((EFI_STRING)L"LOADING...");
       init();
-      Console::writeLine((STRING)L"DONE.");
+      Console::writeLine((EFI_STRING)L"DONE.");
     } else if (tick == 1) {
       Graphics::Pixel black {0, 0, 0, 0};
       Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, black);
@@ -806,7 +804,7 @@ public:
     x0 = (Graphics::HorizontalResolution - WIDTH) / 2;
     y0 = (Graphics::VerticalResolution - HEIGHT) / 2;
     EFI_FILE_PROTOCOL *file;
-    file = FileSystem::open((STRING)L"scenario.txt");
+    file = FileSystem::open((EFI_STRING)L"scenario.txt");
     FileSystem::read(file, scenario, sizeof(CHAR16) * MAX_SCENARIO_SIZE);
     FileSystem::close(file);
     scenarioPos = scenario;
@@ -901,11 +899,11 @@ public:
     INT32 text_index = 0;
     while(TRUE) {
       if (*scenarioPos == L'-') {
-        // Console::write((STRING)L"-");
+        // Console::write((EFI_STRING)L"-");
         while (*scenarioPos++ != L'\n');
         break;
       } else if (*scenarioPos == L'#') {
-        // Console::write((STRING)L"#");
+        // Console::write((EFI_STRING)L"#");
         bgChanged = true;
         ++scenarioPos;
         INT32 i = 0;
@@ -921,7 +919,7 @@ public:
         scenarioPos += 2;
         bg_image = Graphics::loadImageFromFile(bg_filename);
       } else if (*scenarioPos == L':') {
-        // Console::write((STRING)L":");
+        // Console::write((EFI_STRING)L":");
         charaChanged = true;
         ++scenarioPos;
         CHAR16 lr = *scenarioPos;
@@ -954,7 +952,7 @@ public:
         }
         chara[charaIdNum] = Graphics::loadImageFromFile(fileName);
       } else if (*scenarioPos == L'@') {
-        // Console::write((STRING)L"@");
+        // Console::write((EFI_STRING)L"@");
         nameChanged = true;
         ++scenarioPos;
         INT32 i = 0;
@@ -969,7 +967,7 @@ public:
         }
         scenarioPos += 2;
       } else if (*scenarioPos == L'>') {
-        // Console::write((STRING)L">");
+        // Console::write((EFI_STRING)L">");
         textChanged = true;
         ++scenarioPos;
         while (TRUE) {
@@ -988,7 +986,7 @@ public:
       } else {
         textChanged = true;
         *(scenarioPos + 20) = '\0';
-        strcpy(text, (STRING)L"シナリオエラー!:");
+        strcpy(text, (EFI_STRING)L"シナリオエラー!:");
         strcat(text, scenarioPos);
         break;
       }
@@ -1030,8 +1028,8 @@ public:
 
     changeScene(StartScene);
 
-    backupPx = Graphics::loadImageFromFile((STRING)L"cursor.png");
-    cursorImage = Graphics::loadImageFromFile((STRING)L"cursor.png");
+    backupPx = Graphics::loadImageFromFile((EFI_STRING)L"cursor.png");
+    cursorImage = Graphics::loadImageFromFile((EFI_STRING)L"cursor.png");
 
     Main::onUpdate = &onUpdate;
     Main::start();
@@ -1045,11 +1043,11 @@ private:
     }
 
     /*if (!(globalTick % 30)) {
-      Console::write((EfiGame::STRING)L"scene:");
+      Console::write((EFI_STRING)L"scene:");
       Console::writeNum(currentSceneId);
-      Console::write((EfiGame::STRING)L" ");
+      Console::write((EFI_STRING)L" ");
       Console::writeNum(globalTick / 30);
-      Console::write((EfiGame::STRING)L"\r");
+      Console::write((EFI_STRING)L"\r");
     }*/
     ++globalTick;
   }
@@ -1062,7 +1060,7 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   return;
 
   Console::clear();
-  Console::write((EfiGame::STRING)L"Hello!\r\nUEFI!\r\n");
+  Console::write((EFI_STRING)L"Hello!\r\nUEFI!\r\n");
   Graphics::Pixel white {255, 255, 255, 0};
   Graphics::fillRect(0, 0, Graphics::HorizontalResolution, Graphics::VerticalResolution, white);
   Graphics::Pixel black {0, 0, 0, 0};
@@ -1085,22 +1083,22 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
   while (TRUE) {
     auto info = FileSystem::readdir(FileSystem::Root);
     if (info == nullptr) break;
-    Console::write((EfiGame::STRING)L"- ");
-    Console::writeLine((EfiGame::STRING)info->FileName);
+    Console::write((EFI_STRING)L"- ");
+    Console::writeLine((EFI_STRING)info->FileName);
   }
-  Console::write((EfiGame::STRING)L"loading... ");
-  auto *image = Graphics::loadImageFromFile((EfiGame::STRING)L"surface0.png");
-  Console::writeLine((EfiGame::STRING)L"done");
+  Console::write((EFI_STRING)L"loading... ");
+  auto *image = Graphics::loadImageFromFile((EFI_STRING)L"surface0.png");
+  Console::writeLine((EFI_STRING)L"done");
   Console::writeNumLine(image->x);
   Console::writeNumLine(image->y);
   Console::writeNumLine(image->length);
   Console::writeNumLine(image->composition);
-  Console::writeLine((EfiGame::STRING)L"---");
+  Console::writeLine((EFI_STRING)L"---");
   Graphics::drawImage(image, 10, 10);
   Graphics::drawImage(image, 100, 100);
   Graphics::drawImage(image, 200, 200, false);
   Graphics::drawChar(L'あ', 300, 300);
-  Graphics::drawStr((STRING)L"優子「みんながなかよくなりますようにー！！」\r\nEND", black, 300, 400, 200);
+  Graphics::drawStr((EFI_STRING)L"優子「みんながなかよくなりますようにー！！」\r\nEND", black, 300, 400, 200);
   // while (TRUE);
   auto rect = Graphics::getRectImage(100, 60, color2);
   auto circle = Graphics::getCircleImage(50, color3);
@@ -1112,7 +1110,7 @@ extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_
     if (EFI_SUCCESS == SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &key)) {
       str[0] = key.UnicodeChar;
       if (str[0] == L'\r') {
-        Console::write((STRING)L"\r\n");
+        Console::write((EFI_STRING)L"\r\n");
       } else {
         Console::write(str);
       }
