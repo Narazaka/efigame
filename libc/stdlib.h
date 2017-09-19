@@ -5,6 +5,18 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
+void* malloc(UINTN size);
+void free(void *ptr);
+void* realloc_sized(void *ptr, UINTN old_size, UINTN new_size);
+long long llabs(long long n);
+long labs(long n);
+int abs(int n);
+CHAR16* itoa(INT64 val, CHAR16* str, INT32 radix);
+
+#endif // STDLIB_H
+
+#ifdef STDLIB_H_IMPLEMENTATION
+
 void* malloc(UINTN size) {
   void *ptr;
   EFI_STATUS Status = libc::BootServices->AllocatePool(EfiLoaderData, size, &ptr);
@@ -23,19 +35,19 @@ void* realloc_sized(void *ptr, UINTN old_size, UINTN new_size) {
   return new_ptr;
 }
 
-auto llabs(long long n) {
+long long llabs(long long n) {
   return n >= 0 ? n : -n;
 }
 
-auto labs(long n) {
+long labs(long n) {
   return n >= 0 ? n : -n;
 }
 
-auto abs(int n) {
+int abs(int n) {
   return n >= 0 ? n : -n;
 }
 
-auto itoa(INT64 val, CHAR16* str, INT32 radix) {
+CHAR16* itoa(INT64 val, CHAR16* str, INT32 radix) {
   CHAR16 digit;
   CHAR16 reverse_str[30];
   bool negative = val < 0;
@@ -56,4 +68,4 @@ auto itoa(INT64 val, CHAR16* str, INT32 radix) {
   return str;
 }
 
-#endif
+#endif // STDLIB_H_IMPLEMENTATION

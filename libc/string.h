@@ -3,6 +3,17 @@
 #ifndef STRING_H
 #define STRING_H
 
+void* memset(void *buf, int val, UINTN size);
+void *memcpy(void *dest, const void *src, UINTN n);
+CHAR16* strncpy(CHAR16 *dest, const CHAR16 *src, UINTN n);
+CHAR16* strcpy(CHAR16 *dest, const CHAR16 *src);
+CHAR16* strcat(CHAR16 *dest, const CHAR16 *src);
+UINTN strlen(CHAR16 *str);
+
+#endif // STRING_H
+
+#ifdef STRING_H_IMPLEMENTATION
+
 void* memset(void *buf, int val, UINTN size) {
   unsigned char *tmp = (unsigned char *)buf;
   while (size--) *tmp++ = val;
@@ -49,4 +60,4 @@ UINTN strlen(CHAR16 *str) {
   return len;
 }
 
-#endif
+#endif // STRING_H_IMPLEMENTATION

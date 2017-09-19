@@ -3,7 +3,6 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Guid/FileInfo.h>
-#include <string.h>
 
 #include <libc_base.h>
 #include <stdlib.h>
@@ -18,77 +17,88 @@
 #define STBI_REALLOC_SIZED(p,oldsz,newsz) realloc_sized(p,oldsz,newsz)
 #include <stb_image.h>
 
+#define STDLIB_H_IMPLEMENTATION
+#include <stdlib.h>
+#define STRING_H_IMPLEMENTATION
+#include <string.h>
+
+#define EFIGAME_IMPLEMENTATION
+#ifdef EFIGAME_IMPLEMENTATION
+#define IMPL(x) x
+#else
+#define IMPL(x) ;
+#endif
+
 EFI_GUID gEfiSimplePointerProtocolGuid = EFI_SIMPLE_POINTER_PROTOCOL_GUID;
 EFI_GUID gEfiSimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
 EFI_GUID gEfiGraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
-template <class T> void *memcpy(T *dest, const T *src, UINTN n)
-{
+template <class T> void *memcpy(T *dest, const T *src, UINTN n) IMPL({
   T *d = dest;
   T const *s = src;
   while (n--) *d++ = *s++;
   return dest;
-}
+})
 
-template <class T> void* memset(T *buf, T val, UINTN size) {
+template <class T> void* memset(T *buf, T val, UINTN size) IMPL({
   T *tmp = buf;
   while (size--) *tmp++ = val;
   return buf;
-}
+})
 
 namespace EfiGame {
   static EFI_SYSTEM_TABLE *SystemTable;
 
   namespace Console {
-    auto clear() {
+    void clear() IMPL({
       SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
-    }
+    })
 
-    auto write(EFI_STRING str) {
+    void write(EFI_STRING str) IMPL({
       SystemTable->ConOut->OutputString(SystemTable->ConOut, str);
-    }
+    })
 
-    auto writeLine(EFI_STRING str) {
+    void writeLine(EFI_STRING str) IMPL({
       write(str);
       write((EFI_STRING)L"\r\n");
-    }
+    })
 
-    void writeNum(INT64 val) {
+    void writeNum(INT64 val) IMPL({
       CHAR16 str[30];
       itoa(val, str, 10);
       write(str);
-    }
+    })
 
-    void writeNumLine(INT64 val) {
+    void writeNumLine(INT64 val) IMPL({
       writeNum(val);
       write((EFI_STRING)L"\r\n");
-    }
+    })
   };
 
   namespace Input {
     EFI_SIMPLE_POINTER_PROTOCOL *SimplePointerProtocol;
 
-    auto initInput() {
+    void initInput() IMPL({
       SystemTable->BootServices->LocateProtocol(&gEfiSimplePointerProtocolGuid, nullptr, (void**)&SimplePointerProtocol);
-    }
+    })
 
     // keyboard
 
-    static bool triggerKeyEvent = true;
+    static bool triggerKeyEvent IMPL(= true;)
     static void (*onKeyPress)(CHAR16 key);
 
     /** キー入力1つを読み込む キー入力まで待機する */
-    auto getChar() {
+    CHAR16 getChar() IMPL({
       EFI_INPUT_KEY key;
       UINT64 waitIdx;
       SystemTable->BootServices->WaitForEvent(1, &(SystemTable->ConIn->WaitForKey), &waitIdx);
       SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &key);
       if (triggerKeyEvent && onKeyPress != nullptr) onKeyPress(key.UnicodeChar);
       return key.UnicodeChar;
-    }
+    })
 
     /** 改行が来るまでキー入力を読み込む(改行を含まない) バッファの終端がくるか改行キー入力まで待機する */
-    auto getLine(EFI_STRING str, INT32 size) {
+    INT32 getLine(EFI_STRING str, INT32 size) IMPL({
       CHAR16 key;
       INT32 offset = 0;
       size--; // \0の分
@@ -102,14 +112,14 @@ namespace EfiGame {
         }
       }
       return offset;
-    }
+    })
 
     /**
      * 現在たまっているキー入力を取得する
      *
      * たまっていなければ-1を返しなにも読み取らない
      */
-    auto readKeyStroke() {
+    CHAR16 readKeyStroke() IMPL({
       EFI_INPUT_KEY key;
       if (EFI_SUCCESS == SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &key)) {
         if (triggerKeyEvent && onKeyPress != nullptr) onKeyPress(key.UnicodeChar);
@@ -117,7 +127,7 @@ namespace EfiGame {
       } else {
         return (CHAR16)-1;
       }
-    }
+    })
 
     // mouse
 
@@ -146,7 +156,7 @@ namespace EfiGame {
     static MouseButtonState mouseButton;
 
     /** マウスポインタ移動分をスクリーン座標として追従するか設定する */
-    auto setTrackMouseScreenCoordinate(bool track, INT32 initial_x = -1, INT32 initial_y = -1) {
+    void setTrackMouseScreenCoordinate(bool track, INT32 initial_x = -1, INT32 initial_y = -1) IMPL({
       mouse.tracking = track;
       if (mouse.tracking) {
         mouse.x = initial_x >= 0 ? initial_x : 0;
@@ -155,7 +165,7 @@ namespace EfiGame {
         mouse.x = -1;
         mouse.y = -1;
       }
-    }
+    })
 
     static bool triggerMouseEvent = true;
     static void (*onMouseEvent)(EFI_SIMPLE_POINTER_STATE state);
@@ -168,14 +178,15 @@ namespace EfiGame {
     static void (*onMouseRightUp)();
     static void (*onMouseRightClick)();
 
-    EFI_SIMPLE_POINTER_STATE getPointerState() {
+    EFI_SIMPLE_POINTER_STATE getPointerState() IMPL({
       EFI_SIMPLE_POINTER_STATE state;
       if (EFI_SUCCESS != SimplePointerProtocol->GetState(SimplePointerProtocol, &state)) return state; // 応急処置
       if (mouse.tracking) {
         mouse.x += state.RelativeMovementX;
         mouse.y += state.RelativeMovementY;
       }
-      bool leftPressChange, rightPressChange;
+      bool leftPressChange;
+      bool rightPressChange;
       if (triggerMouseEvent) {
         if (onMouseEvent) onMouseEvent(state);
         if ((state.RelativeMovementX || state.RelativeMovementY) && onMouseMove) onMouseMove(state.RelativeMovementX, state.RelativeMovementY);
@@ -204,7 +215,7 @@ namespace EfiGame {
         }
       }
       return state;
-    }
+    })
   };
 
   namespace FileSystem {
@@ -213,32 +224,32 @@ namespace EfiGame {
 
     #define MAX_FILE_BUF_SIZE 1024 * 1024 * 10
 
-    auto initFileSystem() {
+    void initFileSystem() IMPL({
       SystemTable->BootServices->LocateProtocol(&gEfiSimpleFileSystemProtocolGuid, nullptr, (void**)&SimpleFileSystemProtocol);
       SimpleFileSystemProtocol->OpenVolume(SimpleFileSystemProtocol, &Root);
-    }
+    })
 
-    auto open(CHAR16* filename, UINT64 mode = EFI_FILE_MODE_READ) {
+    EFI_FILE_PROTOCOL* open(CHAR16* filename, UINT64 mode = EFI_FILE_MODE_READ) IMPL({
       EFI_FILE_PROTOCOL *file;
       return EFI_SUCCESS == Root->Open(Root, &file, filename, mode, 0) ? file : nullptr;
-    }
+    })
 
-    auto read(EFI_FILE_PROTOCOL *file, void* buf, UINTN size) {
+    UINTN read(EFI_FILE_PROTOCOL *file, void* buf, UINTN size) IMPL({
       file->Read(file, &size, buf);
       return size;
-    }
+    })
 
-    auto close(EFI_FILE_PROTOCOL *file) {
+    void close(EFI_FILE_PROTOCOL *file) IMPL({
       file->Close(file);
-    }
+    })
 
     #define EFI_FILE_INFO_MAX 1024
 
-    auto readdir(EFI_FILE_PROTOCOL *file) {
+    EFI_FILE_INFO* readdir(EFI_FILE_PROTOCOL *file) IMPL({
       EFI_FILE_INFO *child = (EFI_FILE_INFO*)malloc(EFI_FILE_INFO_MAX);
       auto size = read(file, child, EFI_FILE_INFO_MAX);
       return size ? child : nullptr;
-    }
+    })
   };
 
   namespace Graphics {
@@ -247,14 +258,14 @@ namespace EfiGame {
     static UINT32 VerticalResolution;
     static UINT32 TotalResolution;
 
-    auto initGraphics() {
+    void initGraphics() IMPL({
       SystemTable->BootServices->LocateProtocol(&gEfiGraphicsOutputProtocolGuid, nullptr, (void**)&GraphicsOutputProtocol);
       HorizontalResolution = GraphicsOutputProtocol->Mode->Info->HorizontalResolution;
       VerticalResolution = GraphicsOutputProtocol->Mode->Info->VerticalResolution;
       TotalResolution = HorizontalResolution * VerticalResolution;
-    }
+    })
 
-    auto getMaxResolutionMode(BOOLEAN horizontal = TRUE) {
+    UINT32 getMaxResolutionMode(BOOLEAN horizontal = TRUE) IMPL({
       // cf. http://segfo-ctflog.blogspot.jp/2015/06/uefios.html
       EFI_STATUS status;
       UINTN sizeOfInfo;
@@ -269,18 +280,18 @@ namespace EfiGame {
         }
       }
       return mode;
-    }
+    })
 
-    auto setMode(UINT32 mode) {
+    void setMode(UINT32 mode) IMPL({
       GraphicsOutputProtocol->SetMode(GraphicsOutputProtocol, mode);
       HorizontalResolution = GraphicsOutputProtocol->Mode->Info->HorizontalResolution;
       VerticalResolution = GraphicsOutputProtocol->Mode->Info->VerticalResolution;
       TotalResolution = HorizontalResolution * VerticalResolution;
-    }
+    })
 
-    auto maximizeResolution(BOOLEAN hosizontal = TRUE) {
+    void maximizeResolution(BOOLEAN hosizontal = TRUE) IMPL({
       setMode(getMaxResolutionMode(hosizontal));
-    }
+    })
 
     typedef EFI_GRAPHICS_OUTPUT_BLT_PIXEL Pixel;
 
@@ -304,28 +315,28 @@ namespace EfiGame {
 
     typedef struct _Circle Circle;
 
-    void drawPoint(INT32 offset, const Pixel &pixel, Pixel *basePixel) {
+    void drawPoint(INT32 offset, const Pixel &pixel, Pixel *basePixel) IMPL({
       if (offset < 0 || offset >= (INT32)TotalResolution) return;
       Pixel *pointPixel = basePixel + offset;
       pointPixel->Blue = pixel.Blue;
       pointPixel->Green = pixel.Green;
       pointPixel->Red = pixel.Red;
       pointPixel->Reserved = pixel.Reserved;
-    }
+    })
 
-    void drawPoint(INT32 offset, const Pixel &pixel) {
+    void drawPoint(INT32 offset, const Pixel &pixel) IMPL({
       drawPoint(offset, pixel, (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase);
-    }
+    })
 
-    void drawPoint(INT32 x, INT32 y, const Pixel &pixel) {
+    void drawPoint(INT32 x, INT32 y, const Pixel &pixel) IMPL({
       drawPoint(y * HorizontalResolution + x, pixel);
-    }
+    })
 
-    void drawPoint(const Point &point, const Pixel &pixel) {
+    void drawPoint(const Point &point, const Pixel &pixel) IMPL({
       drawPoint(point.x, point.y, pixel);
-    }
+    })
 
-    void fillRect(INT32 x, INT32 y, UINT32 w, UINT32 h, const Pixel &color) {
+    void fillRect(INT32 x, INT32 y, UINT32 w, UINT32 h, const Pixel &color) IMPL({
       UINT32 py;
       if (w > HorizontalResolution) w = HorizontalResolution;
       Pixel pixels[w];
@@ -333,22 +344,22 @@ namespace EfiGame {
       for (py = y; py < y + h; ++py) {
         GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, x, py, w, 1, 0);
       }
-    }
+    })
 
-    void fillRect(INT32 x, INT32 y, const Rect &rect, const Pixel &color) {
+    void fillRect(INT32 x, INT32 y, const Rect &rect, const Pixel &color) IMPL({
       fillRect(x, y, rect.w, rect.h, color);
-    }
+    })
 
-    void fillRect(const Point &point, const Rect &rect, const Pixel &color) {
+    void fillRect(const Point &point, const Rect &rect, const Pixel &color) IMPL({
       fillRect(point.x, point.y, rect, color);
-    }
+    })
 
-    void fillCircle(INT32 x, INT32 y, UINT32 r, const Pixel &color) {
+    void fillCircle(INT32 x, INT32 y, UINT32 r, const Pixel &color) IMPL({
       Pixel pixels[HorizontalResolution];
       memset(pixels, color, HorizontalResolution);
 
       UINT32 r2 = r * r;
-      INT32 dx, dy, mdy, rest, start_x, end_x, length;
+      INT32 dx; INT32 dy; INT32 mdy; INT32 rest; INT32 start_x; INT32 end_x; INT32 length;
       dy = -r;
       if (y + dy < 0) dy = -y;
       mdy = r;
@@ -365,15 +376,15 @@ namespace EfiGame {
         length = end_x - start_x;
         GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, start_x, y + dy, length, 1, 0);
       }
-    }
+    })
 
-    void fillCircle(INT32 x, INT32 y, const Circle &circle, const Pixel &color) {
+    void fillCircle(INT32 x, INT32 y, const Circle &circle, const Pixel &color) IMPL({
       fillCircle(x, y, circle.r, color);
-    }
+    })
 
-    void fillCircle(const Point &point, const Circle &circle, const Pixel &color) {
+    void fillCircle(const Point &point, const Circle &circle, const Pixel &color) IMPL({
       fillCircle(point.x, point.y, circle, color);
-    }
+    })
 
     struct _Image {
       Pixel *pixels;
@@ -386,7 +397,7 @@ namespace EfiGame {
 
     typedef struct _Image Image;
 
-    auto getRectImage(UINT32 w, UINT32 h, const Pixel &color) {
+    Image* getRectImage(UINT32 w, UINT32 h, const Pixel &color) IMPL({
       auto length = w * h;
       Image *image = (Image*)malloc(sizeof(Image));
       image->pixels = (Pixel*)malloc(sizeof(Pixel) * length);
@@ -398,9 +409,9 @@ namespace EfiGame {
       image->length = length;
       image->composition = 4;
       return image;
-    }
+    })
 
-    auto getCircleImage(UINT32 r, const Pixel &color) {
+    Image* getCircleImage(UINT32 r, const Pixel &color) IMPL({
       auto R = r * 2;
       auto length = R * R;
       Image *image = (Image*)malloc(sizeof(Image));
@@ -409,7 +420,7 @@ namespace EfiGame {
       image->alphas = (UINT8*)malloc(sizeof(UINT8) * length);
       memset(image->alphas, 0, length);
       UINT32 r2 = r * r;
-      INT32 dx, dy, mdy, rest, yoffset;
+      INT32 dx; INT32 dy; INT32 mdy; INT32 rest; INT32 yoffset;
       mdy = r;
       for (dy = -r; dy < mdy; ++dy) {
         rest = r2 - dy * dy;
@@ -424,9 +435,9 @@ namespace EfiGame {
       image->length = length;
       image->composition = 4;
       return image;
-    }
+    })
 
-    auto loadImageFromMemory(const UINT8 *buf, int len) {
+    Image* loadImageFromMemory(const UINT8 *buf, int len) IMPL({
       Image *image = (Image*)malloc(sizeof(Image));
 
       UINT8* src_pixels = stbi_load_from_memory(buf, len, &image->x, &image->y, &image->composition, 4);
@@ -448,11 +459,11 @@ namespace EfiGame {
       }
       stbi_image_free(src_pixels);
       return image;
-    }
+    })
 
     #define MAX_IMAGE_FILE_SIZE 1024 * 1024 * 20
 
-    Image* loadImageFromFile(CHAR16 *filename, UINTN maxFileSize = MAX_IMAGE_FILE_SIZE) {
+    Image* loadImageFromFile(CHAR16 *filename, UINTN maxFileSize = MAX_IMAGE_FILE_SIZE) IMPL({
       auto file = FileSystem::open(filename);
       if (file == nullptr) return nullptr;
       UINT8 *buf = (UINT8*)malloc(sizeof(UINT8) * maxFileSize);
@@ -461,16 +472,16 @@ namespace EfiGame {
       auto image = loadImageFromMemory(buf, size);
       free(buf);
       return image;
-    }
+    })
 
-    auto drawImage(Image *image, INT32 x, INT32 y, bool transparent = TRUE) {
+    bool drawImage(Image *image, INT32 x, INT32 y, bool transparent = TRUE) IMPL({
       if (image == nullptr) return false;
       Pixel* base = (Pixel *)GraphicsOutputProtocol->Mode->FrameBufferBase;
-      Pixel* pixels, *image_pixel, *base_pixel;
+      Pixel* pixels; Pixel* image_pixel; Pixel* base_pixel;
       if (transparent) {
         pixels = (Pixel*)malloc(sizeof(Pixel) * image->length);
         memcpy(pixels, image->pixels, image->length);
-        INT32 dx, dy, image_offset, image_yoffset, base_offset, base_yoffset, alpha;
+        INT32 dx; INT32 dy; INT32 image_offset; INT32 image_yoffset; INT32 base_offset; INT32 base_yoffset; INT32 alpha;
         double alpha1;
         for (dy = 0; dy < image->y; ++dy) {
           image_yoffset = dy * image->x;
@@ -499,7 +510,7 @@ namespace EfiGame {
       GraphicsOutputProtocol->Blt(GraphicsOutputProtocol, pixels, EfiBltBufferToVideo, 0, 0, x, y, image->x, image->y, 0);
       if (transparent) free(pixels);
       return true;
-    }
+    })
 /*
     void initFont() {
       auto fonts = FileSystem::open((EFI_STRING)L"fonts");
@@ -516,25 +527,25 @@ namespace EfiGame {
 
     #define FONT_FILE_MAX_SIZE 1024
     #define FONT_MAX_PIXEL_SIZE 1024
-    auto getFontImageName(CHAR16 c, CHAR16 *path) {
+    EFI_STRING getFontImageName(CHAR16 c, CHAR16 *path) IMPL({
       CHAR16 code[10];
       itoa(c, code, 10);
       strcpy(path, (EFI_STRING)L"fonts\\");
       strcat(path, code);
       strcat(path, (EFI_STRING)L".png");
       return path;
-    }
+    })
 
-    auto getFontImage(CHAR16 c) {
+    Image* getFontImage(CHAR16 c) IMPL({
       CHAR16 path[50];
       getFontImageName(c, path);
       return Graphics::loadImageFromFile(path, FONT_FILE_MAX_SIZE);
-    }
+    })
 
-    auto drawChar(CHAR16 c, INT32 x, INT32 y, bool transparent = TRUE) {
+    bool drawChar(CHAR16 c, INT32 x, INT32 y, bool transparent = TRUE) IMPL({
       auto image = getFontImage(c);
       return drawImage(image, x, y, transparent);
-    }
+    })
 
     struct _DrawStrInfo {
       INT32 dx;
@@ -546,9 +557,9 @@ namespace EfiGame {
 
     typedef struct _DrawStrInfo DrawStrInfo;
 
-    auto drawStr(CHAR16 *str, Pixel color, INT32 x, INT32 y, INT32 width = 0, bool transparent = TRUE, DrawStrInfo *info = nullptr) {
+    DrawStrInfo* drawStr(CHAR16 *str, Pixel color, INT32 x, INT32 y, INT32 width = 0, bool transparent = TRUE, DrawStrInfo *info = nullptr) IMPL({
       UINTN length = strlen(str);
-      INT32 dx = 0, dy = 0, w = 0, h = 0, lines = 1;
+      INT32 dx = 0; INT32 dy = 0; INT32 w = 0; INT32 h = 0; INT32 lines = 1;
       INT32 line_height = 0;
       Pixel pixels[FONT_MAX_PIXEL_SIZE];
       memset(pixels, color, FONT_MAX_PIXEL_SIZE);
@@ -584,22 +595,22 @@ namespace EfiGame {
         info->lines = lines;
       }
       return info;
-    }
+    })
   };
 
   namespace Main {
     static void (*onUpdate)();
 
-    void _onKeyPress() {
+    void _onKeyPress() IMPL({
       Input::readKeyStroke();
-    }
+    })
 
-    void _onTick() {
+    void _onTick() IMPL({
       Input::getPointerState();
       if (onUpdate) onUpdate();
-    }
+    })
 
-    void start(UINT64 tick_interval = 333'300) {
+    void start(UINT64 tick_interval = 333'300) IMPL({
       EFI_EVENT events[2];
       EFI_EVENT timerEvent;
       SystemTable->BootServices->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timerEvent);
@@ -614,16 +625,16 @@ namespace EfiGame {
           case 1: _onTick(); break;
         }
       }
-    }
+    })
   };
 
-  void initGame(EFI_SYSTEM_TABLE *SystemTable) {
+  void initGame(EFI_SYSTEM_TABLE *SystemTable) IMPL({
     libc::init(SystemTable);
     EfiGame::SystemTable = SystemTable;
     Input::initInput();
     Graphics::initGraphics();
     FileSystem::initFileSystem();
-  }
+  })
 };
 
 using namespace EfiGame;
