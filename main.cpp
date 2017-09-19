@@ -1,3 +1,4 @@
+#define EFIGAME_IMPLEMENTATION
 #include "efigame.h"
 
 using namespace EfiGame;

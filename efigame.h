@@ -6,7 +6,13 @@
 
 #include <libc_base.h>
 #include <stdlib.h>
+
+#ifdef EFIGAME_IMPLEMENTATION
+
 #define STB_IMAGE_IMPLEMENTATION
+
+#endif
+
 #define STBI_ASSERT(x)
 #define STBI_NO_STDIO
 #define STBI_NO_LINEAR
@@ -17,12 +23,18 @@
 #define STBI_REALLOC_SIZED(p,oldsz,newsz) realloc_sized(p,oldsz,newsz)
 #include <stb_image.h>
 
+#ifdef EFIGAME_IMPLEMENTATION
+
 #define STDLIB_H_IMPLEMENTATION
+
 #include <stdlib.h>
+
 #define STRING_H_IMPLEMENTATION
+
 #include <string.h>
 
-#define EFIGAME_IMPLEMENTATION
+#endif
+
 #ifdef EFIGAME_IMPLEMENTATION
 #define IMPL(x) x
 #else
