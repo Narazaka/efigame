@@ -1,14 +1,16 @@
-#include "scenes.cpp"
+//#include "scenes.cpp"
 
 #include "efigame.h"
 #define EFIGAME_IMPLEMENTATION
 #include "efigame.h"
 
+using namespace EfiGame;
+
 extern "C" void efi_main(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE *SystemTable) {
   initGame(SystemTable);
   // Graphics::maximizeResolution();
-  Game::start();
-  return;
+  //Game::start();
+  //return;
 
   Console::clear();
   Console::write((EFI_STRING)L"Hello!\r\nUEFI!\r\n");

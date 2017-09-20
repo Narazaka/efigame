@@ -11,19 +11,20 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 
-#endif
-
 #define STBI_ASSERT(x)
+
 #define STBI_NO_STDIO
+
 #define STBI_NO_LINEAR
+
 #define STBI_NO_HDR
+
 #define STBI_ONLY_PNG
+
 #define STBI_MALLOC(sz) malloc(sz)
 #define STBI_FREE(p) free(p)
 #define STBI_REALLOC_SIZED(p,oldsz,newsz) realloc_sized(p,oldsz,newsz)
 #include <stb_image.h>
-
-#ifdef EFIGAME_IMPLEMENTATION
 
 #define STDLIB_H_IMPLEMENTATION
 
@@ -451,14 +452,21 @@ namespace EfiGame {
     })
 
     Image* loadImageFromMemory(const UINT8 *buf, int len) IMPL({
+      Console::writeLine((EFI_STRING)L"M1");
       Image *image = (Image*)malloc(sizeof(Image));
+      Console::writeNumLine(len);
+      Console::writeLine((EFI_STRING)L"M2");
 
       UINT8* src_pixels = stbi_load_from_memory(buf, len, &image->x, &image->y, &image->composition, 4);
+      Console::writeLine((EFI_STRING)L"M3");
       int length = image->length = image->x * image->y;
+      Console::writeLine((EFI_STRING)L"M4");
       image->pixels = (Pixel*)malloc(sizeof(Pixel) * length);
       image->alphas = (UINT8*)malloc(sizeof(UINT8) * length);
+      Console::writeLine((EFI_STRING)L"M5");
       Pixel *pixel = image->pixels;
       UINT8 *alpha = image->alphas;
+      Console::writeLine((EFI_STRING)L"M6");
       int offset;
       for (int pos = 0; pos < length; ++pos) {
         pixel->Red = *(src_pixels + offset);
@@ -470,7 +478,9 @@ namespace EfiGame {
         ++pixel;
         ++alpha;
       }
+      Console::writeLine((EFI_STRING)L"M7");
       stbi_image_free(src_pixels);
+      Console::writeLine((EFI_STRING)L"M8");
       return image;
     })
 
