@@ -13,8 +13,8 @@ run: fs/EFI/BOOT/BOOTX64.EFI
 	qemu-system-x86_64 -bios C:/usr/OVMF/OVMF.fd -hda fat:fs
 
 clean:
-	rm fs/EFI/BOOT/BOOTX64.EFI
-	rm include/ProcessorBind.h
+	rm -rf fs/EFI/BOOT/BOOTX64.EFI
+	rm -rf include/ProcessorBind.h
 
 .PHONY: clean
 
