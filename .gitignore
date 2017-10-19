@@ -2,3 +2,4 @@ fs
 include
 texts
 OVMF
+fdlibm

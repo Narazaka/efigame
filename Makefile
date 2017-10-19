@@ -9,6 +9,14 @@ include/ProcessorBind.h:
 	mkdir -p include
 	cp uefi-headers/Include/X64/ProcessorBind.h include/ProcessorBind.h
 
+fdlibm/libm.a: fdlibm/makefile
+	cd fdlibm && make CC=x86_64-w64-mingw32-gcc
+
+fdlibm/makefile:
+	mkdir -p fdlibm
+	cd fdlibm && curl "http://www.netlib.org/fdlibm/index" | perl -pe "s/^file\t//" | grep . | perl -pe "s/^/http:\/\/www.netlib.org\//" | xargs -P4 -n 1 curl -OL
+	perl -i -ple "s/\b(ar|ranlib)\b/x86_64-w64-mingw32-\$$1/" fdlibm/makefile
+
 run: fs/EFI/BOOT/BOOTX64.EFI OVMF/OVMF.fd
 	qemu-system-x86_64 -bios ./OVMF/OVMF.fd -hda fat:fs
 
