@@ -10,13 +10,17 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ASSERT(x)
 #define STBI_NO_STDIO
-//#define STBI_NO_LINEAR
-#define STBI_NO_HDR
+// #define STBI_NO_LINEAR
+// #define STBI_NO_HDR
 #define STBI_ONLY_PNG
 #define STBI_MALLOC(sz) malloc(sz)
 #define STBI_FREE(p) free(p)
 #define STBI_REALLOC_SIZED(p,oldsz,newsz) realloc_sized(p,oldsz,newsz)
 #include <stb_image.h>
+
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#define STBIR_ASSERT(x)
+#include <stb_image_resize.h>
 
 EFI_GUID gEfiSimplePointerProtocolGuid = EFI_SIMPLE_POINTER_PROTOCOL_GUID;
 EFI_GUID gEfiSimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
