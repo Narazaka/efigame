@@ -9,8 +9,13 @@ include/ProcessorBind.h:
 	mkdir -p include
 	cp uefi-headers/Include/X64/ProcessorBind.h include/ProcessorBind.h
 
-run: fs/EFI/BOOT/BOOTX64.EFI
-	qemu-system-x86_64 -bios C:/usr/OVMF/OVMF.fd -hda fat:fs
+run: fs/EFI/BOOT/BOOTX64.EFI OVMF/OVMF.fd
+	qemu-system-x86_64 -bios ./OVMF/OVMF.fd -hda fat:fs
+
+OVMF/OVMF.fd:
+	curl -L https://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip -o ovmf_tmp.zip
+	unzip ovmf_tmp.zip -d OVMF
+	rm ovmf_tmp.zip
 
 clean:
 	rm -rf fs/EFI/BOOT/BOOTX64.EFI
