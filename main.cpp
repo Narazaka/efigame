@@ -10,7 +10,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ASSERT(x)
 #define STBI_NO_STDIO
-#define STBI_NO_LINEAR
+//#define STBI_NO_LINEAR
 #define STBI_NO_HDR
 #define STBI_ONLY_PNG
 #define STBI_MALLOC(sz) malloc(sz)

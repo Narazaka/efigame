@@ -1,8 +1,8 @@
 all: fs/EFI/BOOT/BOOTX64.EFI fs/surface0.png
 
-fs/EFI/BOOT/BOOTX64.EFI: main.cpp include/ProcessorBind.h
+fs/EFI/BOOT/BOOTX64.EFI: main.cpp include/ProcessorBind.h fdlibm/libm.a
 	mkdir -p fs/EFI/BOOT
-	x86_64-w64-mingw32-g++ -std=c++14 -Wall -Wextra -e efi_main -Iuefi-headers/Include -Istb -Iinclude -Ilibc -nostdlib \
+	x86_64-w64-mingw32-g++ -std=c++14 -Wall -Wextra -e efi_main -Iuefi-headers/Include -Istb -Ifdlibm -Iinclude -Ilibc -nostdlib -D_IEEE_LIBM fdlibm/*.c libc/errno.c \
 	-fno-builtin -Wl,--subsystem,10 -mno-stack-arg-probe -o $@ $<
 
 include/ProcessorBind.h:
